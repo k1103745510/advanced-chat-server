@@ -17,9 +17,10 @@ pip install -r requirements.txt
 ```
 
 2. 환경 변수 설정:
-`.env` 파일을 생성하고 OpenAI API 키를 설정합니다:
+`.env` 파일을 생성하고 필요한 API 키를 설정합니다:
 ```
-OPENAI_API_KEY=your_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+API_KEY=your_secure_api_key_here
 ```
 
 3. 서버 실행:
@@ -29,38 +30,45 @@ python run.py
 
 ## API 사용법
 
+모든 API 요청에는 `X-API-Key` 헤더가 필요합니다. 유효한 API 키를 헤더에 포함시켜야 합니다.
+
+예시:
+```bash
+curl -H "X-API-Key: your-secure-api-key" http://localhost:10000/models
+```
+
 ### 1. 모델 목록 조회
 ```bash
-curl http://localhost:10000/models
+curl -H "X-API-Key: your-secure-api-key" http://localhost:10000/models
 ```
 
 ### 2. 현재 사용 중인 모델 조회
 ```bash
-curl "http://localhost:10000/model?client_name=your_client_name"
+curl -H "X-API-Key: your-secure-api-key" "http://localhost:10000/model?client_name=your_client_name"
 ```
 
 ### 3. 모델 변경
 ```bash
-curl -X POST http://localhost:10000/model \
-  -H "Content-Type: application/json" \
-  -d '{"model": "gpt-4", "client_name": "your_client_name"}'
+curl -X POST -H "X-API-Key: your-secure-api-key" -H "Content-Type: application/json" \
+  -d '{"model": "gpt-4", "client_name": "your_client_name"}' \
+  http://localhost:10000/model
 ```
 
 ### 4. 대화 요청
 ```bash
-curl -X POST http://localhost:10000/query \
-  -H "Content-Type: application/json" \
-  -d '{"input": "안녕하세요", "client_name": "your_client_name"}'
+curl -X POST -H "X-API-Key: your-secure-api-key" -H "Content-Type: application/json" \
+  -d '{"input": "안녕하세요", "client_name": "your_client_name"}' \
+  http://localhost:10000/query
 ```
 
 ### 5. 대화 기록 조회
 ```bash
-curl "http://localhost:10000/history?client_name=your_client_name"
+curl -H "X-API-Key: your-secure-api-key" "http://localhost:10000/history?client_name=your_client_name"
 ```
 
 ### 6. 대화 기록 초기화
 ```bash
-curl -X DELETE "http://localhost:10000/history?client_name=your_client_name"
+curl -X DELETE -H "X-API-Key: your-secure-api-key" "http://localhost:10000/history?client_name=your_client_name"
 ```
 
 ## API 스키마

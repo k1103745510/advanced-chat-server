@@ -16,6 +16,31 @@ api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
 
+# API 키 검증을 위한 의존성 함수
+async def verify_api_key(x_api_key: str = Header(..., description="API 키")):
+    """API 키를 검증합니다."""
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API 키가 필요합니다."
+        )
+    
+    # 환경 변수에서 API 키 가져오기
+    valid_api_key = os.getenv('API_KEY')
+    if not valid_api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="서버 설정 오류: API 키가 설정되지 않았습니다."
+        )
+    
+    if x_api_key != valid_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="유효하지 않은 API 키입니다."
+        )
+    
+    return x_api_key
+
 app = FastAPI(
     title="대화형 API 서버",
     description="OpenAI API를 활용한 대화형 REST API 서버",
@@ -118,7 +143,7 @@ def save_conversation_history(client_name: str, history: List[Message]) -> None:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 @app.get("/models", response_model=ModelsResponse)
-async def get_models():
+async def get_models(api_key: str = Depends(verify_api_key)):
     """사용 가능한 OpenAI 모델 목록을 조회합니다."""
     try:
         response = client.models.list()
@@ -141,7 +166,7 @@ async def get_models():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/model", response_model=CurrentModelResponse)
-async def get_current_model(client_name: str):
+async def get_current_model(client_name: str, api_key: str = Depends(verify_api_key)):
     """현재 사용 중인 모델을 조회합니다."""
     try:
         config = load_config(client_name)
@@ -150,7 +175,7 @@ async def get_current_model(client_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/model", response_model=CurrentModelResponse)
-async def set_model(request: SetModelRequest):
+async def set_model(request: SetModelRequest, api_key: str = Depends(verify_api_key)):
     """사용할 모델을 변경합니다."""
     try:
         # 모델 존재 여부 확인
@@ -173,7 +198,7 @@ async def set_model(request: SetModelRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query", response_model=QueryResponse, responses={400: {"model": ErrorResponse}})
-async def query(request: QueryRequest):
+async def query(request: QueryRequest, api_key: str = Depends(verify_api_key)):
     try:
         user_input = request.input
         client_name = request.client_name
@@ -227,7 +252,7 @@ async def query(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history", response_model=List[Message])
-async def get_history(client_name: str):
+async def get_history(client_name: str, api_key: str = Depends(verify_api_key)):
     """대화 기록을 조회합니다."""
     try:
         return load_conversation_history(client_name)
@@ -235,7 +260,7 @@ async def get_history(client_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/history", response_model=HistoryResponse)
-async def clear_history(client_name: str):
+async def clear_history(client_name: str, api_key: str = Depends(verify_api_key)):
     """대화 기록을 초기화합니다."""
     try:
         save_conversation_history(client_name, [])
