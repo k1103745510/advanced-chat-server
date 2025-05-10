@@ -24,7 +24,7 @@ app = FastAPI(
 )
 
 # OpenAI 클라이언트 초기화
-client = openai.OpenAI(api_key=api_key)
+client = openai.OpenAI()
 
 # 대화 기록을 저장할 디렉토리
 HISTORY_DIR = 'conversation_histories'
