@@ -7,7 +7,6 @@ import os
 import json
 from datetime import datetime
 from typing import List, Optional, Dict
-import hashlib
 
 # 환경 변수 로드
 load_dotenv()
@@ -122,9 +121,20 @@ def save_conversation_history(client_name: str, history: List[Message]) -> None:
 async def get_models():
     """사용 가능한 OpenAI 모델 목록을 조회합니다."""
     try:
-        models = client.models.list()
+        response = client.models.list()
         return {
-            "data": models.data,
+            "data": [
+                {
+                    "id": model.id,
+                    "object": model.object,
+                    "created": model.created,
+                    "owned_by": model.owned_by,
+                    "permission": model.permission,
+                    "root": model.root,
+                    "parent": model.parent
+                }
+                for model in response.data
+            ],
             "object": "list"
         }
     except Exception as e:
