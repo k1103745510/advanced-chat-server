@@ -8,7 +8,6 @@ import json
 from datetime import datetime
 from typing import List, Optional, Dict
 import hashlib
-from api_key_manager import APIKeyManager
 
 # 환경 변수 로드
 load_dotenv()
@@ -25,10 +24,7 @@ app = FastAPI(
 )
 
 # OpenAI 클라이언트 초기화
-client = openai.OpenAI()
-
-# API 키 관리자 초기화
-api_key_manager = APIKeyManager()
+client = openai.OpenAI(api_key=api_key)
 
 # 대화 기록을 저장할 디렉토리
 HISTORY_DIR = 'conversation_histories'
@@ -46,6 +42,7 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 # Pydantic 모델 정의
 class QueryRequest(BaseModel):
     input: str
+    client_name: str
 
 class Message(BaseModel):
     role: str
@@ -79,26 +76,17 @@ class CurrentModelResponse(BaseModel):
 
 class SetModelRequest(BaseModel):
     model: str
-
-class APIKeyRequest(BaseModel):
     client_name: str
-    expires_in_days: Optional[int] = None
 
-class APIKeyResponse(BaseModel):
-    api_key: str
-    client_name: str
-    created_at: str
-    expires_at: Optional[str]
-
-def get_client_paths(client_id: str) -> tuple[str, str]:
+def get_client_paths(client_name: str) -> tuple[str, str]:
     """클라이언트별 파일 경로를 반환합니다."""
-    history_file = os.path.join(HISTORY_DIR, f"{client_id}_history.json")
-    config_file = os.path.join(CONFIG_DIR, f"{client_id}_config.json")
+    history_file = os.path.join(HISTORY_DIR, f"{client_name}_history.json")
+    config_file = os.path.join(CONFIG_DIR, f"{client_name}_config.json")
     return history_file, config_file
 
-def load_config(client_id: str) -> Dict:
+def load_config(client_name: str) -> Dict:
     """클라이언트별 설정을 파일에서 불러옵니다."""
-    _, config_file = get_client_paths(client_id)
+    _, config_file = get_client_paths(client_name)
     if os.path.exists(config_file):
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
@@ -107,15 +95,15 @@ def load_config(client_id: str) -> Dict:
             return DEFAULT_CONFIG
     return DEFAULT_CONFIG
 
-def save_config(client_id: str, config: Dict) -> None:
+def save_config(client_name: str, config: Dict) -> None:
     """클라이언트별 설정을 파일에 저장합니다."""
-    _, config_file = get_client_paths(client_id)
+    _, config_file = get_client_paths(client_name)
     with open(config_file, 'w', encoding='utf-8') as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
 
-def load_conversation_history(client_id: str) -> List[Message]:
+def load_conversation_history(client_name: str) -> List[Message]:
     """클라이언트별 대화 기록을 파일에서 불러옵니다."""
-    history_file, _ = get_client_paths(client_id)
+    history_file, _ = get_client_paths(client_name)
     if os.path.exists(history_file):
         try:
             with open(history_file, 'r', encoding='utf-8') as f:
@@ -124,51 +112,14 @@ def load_conversation_history(client_id: str) -> List[Message]:
             return []
     return []
 
-def save_conversation_history(client_id: str, history: List[Message]) -> None:
+def save_conversation_history(client_name: str, history: List[Message]) -> None:
     """클라이언트별 대화 기록을 파일에 저장합니다."""
-    history_file, _ = get_client_paths(client_id)
+    history_file, _ = get_client_paths(client_name)
     with open(history_file, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
-async def validate_api_key(x_api_key: str = Header(...)) -> str:
-    """API 키의 유효성을 검증합니다."""
-    if not api_key_manager.validate_key(x_api_key):
-        raise HTTPException(
-            status_code=401,
-            detail="유효하지 않은 API 키입니다."
-        )
-    return x_api_key
-
-@app.post("/api-keys", response_model=APIKeyResponse)
-async def create_api_key(request: APIKeyRequest):
-    """새로운 API 키를 생성합니다."""
-    try:
-        api_key = api_key_manager.generate_key(
-            request.client_name,
-            request.expires_in_days
-        )
-        key_info = api_key_manager.keys[api_key]
-        return {
-            "api_key": api_key,
-            "client_name": key_info["client_name"],
-            "created_at": key_info["created_at"],
-            "expires_at": key_info["expires_at"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.delete("/api-keys/{api_key}", response_model=HistoryResponse)
-async def revoke_api_key(api_key: str):
-    """API 키를 비활성화합니다."""
-    try:
-        if api_key_manager.revoke_key(api_key):
-            return {"message": "API 키가 비활성화되었습니다."}
-        raise HTTPException(status_code=404, detail="API 키를 찾을 수 없습니다.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.get("/models", response_model=ModelsResponse)
-async def get_models(api_key: str = Depends(validate_api_key)):
+async def get_models():
     """사용 가능한 OpenAI 모델 목록을 조회합니다."""
     try:
         models = client.models.list()
@@ -180,16 +131,16 @@ async def get_models(api_key: str = Depends(validate_api_key)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/model", response_model=CurrentModelResponse)
-async def get_current_model(api_key: str = Depends(validate_api_key)):
+async def get_current_model(client_name: str):
     """현재 사용 중인 모델을 조회합니다."""
     try:
-        config = load_config(api_key)
+        config = load_config(client_name)
         return {"model": config["model"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/model", response_model=CurrentModelResponse)
-async def set_model(request: SetModelRequest, api_key: str = Depends(validate_api_key)):
+async def set_model(request: SetModelRequest):
     """사용할 모델을 변경합니다."""
     try:
         # 모델 존재 여부 확인
@@ -203,24 +154,25 @@ async def set_model(request: SetModelRequest, api_key: str = Depends(validate_ap
             )
         
         # 모델 변경
-        config = load_config(api_key)
+        config = load_config(request.client_name)
         config["model"] = request.model
-        save_config(api_key, config)
+        save_config(request.client_name, config)
         
         return {"model": config["model"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query", response_model=QueryResponse, responses={400: {"model": ErrorResponse}})
-async def query(request: QueryRequest, api_key: str = Depends(validate_api_key)):
+async def query(request: QueryRequest):
     try:
         user_input = request.input
+        client_name = request.client_name
         
         # 타임스탬프 추가
         timestamp = datetime.now().isoformat()
         
         # 클라이언트별 대화 기록 로드
-        conversation_history = load_conversation_history(api_key)
+        conversation_history = load_conversation_history(client_name)
         
         # 대화 기록에 사용자 입력 추가
         conversation_history.append({
@@ -236,7 +188,7 @@ async def query(request: QueryRequest, api_key: str = Depends(validate_api_key))
         ]
 
         # 클라이언트별 설정 로드
-        config = load_config(api_key)
+        config = load_config(client_name)
 
         # OpenAI API 호출
         chat_completion = client.chat.completions.create(
@@ -257,7 +209,7 @@ async def query(request: QueryRequest, api_key: str = Depends(validate_api_key))
         })
 
         # 대화 기록 저장
-        save_conversation_history(api_key, conversation_history)
+        save_conversation_history(client_name, conversation_history)
 
         return {"response": assistant_response}
 
@@ -265,18 +217,18 @@ async def query(request: QueryRequest, api_key: str = Depends(validate_api_key))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history", response_model=List[Message])
-async def get_history(api_key: str = Depends(validate_api_key)):
+async def get_history(client_name: str):
     """대화 기록을 조회합니다."""
     try:
-        return load_conversation_history(api_key)
+        return load_conversation_history(client_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/history", response_model=HistoryResponse)
-async def clear_history(api_key: str = Depends(validate_api_key)):
+async def clear_history(client_name: str):
     """대화 기록을 초기화합니다."""
     try:
-        save_conversation_history(api_key, [])
+        save_conversation_history(client_name, [])
         return {"message": "대화 기록이 초기화되었습니다."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
