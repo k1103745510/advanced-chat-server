@@ -23,6 +23,134 @@ python main.py
 
 서버가 기본적으로 `http://localhost:5000`에서 실행됩니다.
 
+## API 스키마
+
+```json
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "대화형 API 서버",
+    "description": "OpenAI API를 활용한 대화형 REST API 서버",
+    "version": "v1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000"
+    }
+  ],
+  "paths": {
+    "/query": {
+      "post": {
+        "summary": "사용자 입력에 대한 응답 생성",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["input"],
+                "properties": {
+                  "input": {
+                    "type": "string",
+                    "description": "사용자 입력 텍스트"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "성공적인 응답",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "description": "OpenAI 응답 텍스트"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history": {
+      "get": {
+        "summary": "대화 기록 조회",
+        "responses": {
+          "200": {
+            "description": "성공적인 응답",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "type": "string",
+                        "enum": ["user", "assistant"]
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "대화 기록 초기화",
+        "responses": {
+          "200": {
+            "description": "성공적인 응답",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ## API 사용 방법
 
 ### POST /query

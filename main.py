@@ -1,14 +1,21 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import json
 from datetime import datetime
+from typing import List, Optional
 
 # 환경 변수 로드
 load_dotenv()
 
-app = Flask(__name__)
+app = FastAPI(
+    title="대화형 API 서버",
+    description="OpenAI API를 활용한 대화형 REST API 서버",
+    version="1.0.0"
+)
 
 # OpenAI 클라이언트 초기화
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
@@ -16,7 +23,25 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 # 대화 기록을 저장할 파일 경로
 HISTORY_FILE = 'conversation_history.json'
 
-def load_conversation_history():
+# Pydantic 모델 정의
+class QueryRequest(BaseModel):
+    input: str
+
+class Message(BaseModel):
+    role: str
+    content: str
+    timestamp: str
+
+class QueryResponse(BaseModel):
+    response: str
+
+class ErrorResponse(BaseModel):
+    error: str
+
+class HistoryResponse(BaseModel):
+    message: str
+
+def load_conversation_history() -> List[Message]:
     """대화 기록을 파일에서 불러옵니다."""
     if os.path.exists(HISTORY_FILE):
         try:
@@ -26,7 +51,7 @@ def load_conversation_history():
             return []
     return []
 
-def save_conversation_history(history):
+def save_conversation_history(history: List[Message]) -> None:
     """대화 기록을 파일에 저장합니다."""
     with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
@@ -34,15 +59,10 @@ def save_conversation_history(history):
 # 대화 기록 초기화
 conversation_history = load_conversation_history()
 
-@app.route('/query', methods=['POST'])
-def query():
+@app.post("/query", response_model=QueryResponse, responses={400: {"model": ErrorResponse}})
+async def query(request: QueryRequest):
     try:
-        # JSON 요청 데이터 가져오기
-        data = request.get_json()
-        if not data or 'input' not in data:
-            return jsonify({'error': '입력 데이터가 올바르지 않습니다.'}), 400
-
-        user_input = data['input']
+        user_input = request.input
         
         # 타임스탬프 추가
         timestamp = datetime.now().isoformat()
@@ -56,7 +76,7 @@ def query():
 
         # OpenAI API 호출
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-3.5-turbo",
             messages=[{"role": msg["role"], "content": msg["content"]} for msg in conversation_history]
         )
 
@@ -73,29 +93,30 @@ def query():
         # 대화 기록 저장
         save_conversation_history(conversation_history)
 
-        return jsonify({'response': assistant_response})
+        return {"response": assistant_response}
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/history', methods=['GET'])
-def get_history():
+@app.get("/history", response_model=List[Message])
+async def get_history():
     """대화 기록을 조회합니다."""
     try:
-        return jsonify(conversation_history)
+        return conversation_history
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/history', methods=['DELETE'])
-def clear_history():
+@app.delete("/history", response_model=HistoryResponse)
+async def clear_history():
     """대화 기록을 초기화합니다."""
     try:
         global conversation_history
         conversation_history = []
         save_conversation_history(conversation_history)
-        return jsonify({'message': '대화 기록이 초기화되었습니다.'})
+        return {"message": "대화 기록이 초기화되었습니다."}
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000) 
