@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 import os
 import json
@@ -25,7 +25,7 @@ app = FastAPI(
 )
 
 # OpenAI 클라이언트 초기화
-client = OpenAI(api_key=api_key)
+client = openai.OpenAI()
 
 # API 키 관리자 초기화
 api_key_manager = APIKeyManager()
