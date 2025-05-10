@@ -122,12 +122,14 @@ curl -X DELETE "http://localhost:10000/history?client_name=your_client_name"
                           },
                           "root": {
                             "type": "string",
-                            "description": "루트 모델 ID"
+                            "description": "루트 모델 ID (없을 경우 모델 ID와 동일)",
+                            "default": "model.id"
                           },
                           "parent": {
                             "type": "string",
                             "nullable": true,
-                            "description": "부모 모델 ID (없을 수 있음)"
+                            "description": "부모 모델 ID (없을 수 있음)",
+                            "default": null
                           }
                         }
                       }
