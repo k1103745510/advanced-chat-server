@@ -129,9 +129,9 @@ async def get_models():
                     "object": model.object,
                     "created": model.created,
                     "owned_by": model.owned_by,
-                    "permission": model.permission,
+                    "permission": getattr(model, 'permission', []),
                     "root": model.root,
-                    "parent": model.parent
+                    "parent": getattr(model, 'parent', None)
                 }
                 for model in response.data
             ],

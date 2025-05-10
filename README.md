@@ -114,9 +114,11 @@ curl -X DELETE "http://localhost:10000/history?client_name=your_client_name"
                           },
                           "permission": {
                             "type": "array",
+                            "description": "모델 권한 정보 (없을 수 있음)",
                             "items": {
                               "type": "object"
-                            }
+                            },
+                            "default": []
                           },
                           "root": {
                             "type": "string",
@@ -125,7 +127,7 @@ curl -X DELETE "http://localhost:10000/history?client_name=your_client_name"
                           "parent": {
                             "type": "string",
                             "nullable": true,
-                            "description": "부모 모델 ID"
+                            "description": "부모 모델 ID (없을 수 있음)"
                           }
                         }
                       }
