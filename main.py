@@ -11,6 +11,11 @@ from typing import List, Optional
 # 환경 변수 로드
 load_dotenv()
 
+# OpenAI API 키 확인
+api_key = os.getenv('OPENAI_API_KEY')
+if not api_key:
+    raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+
 app = FastAPI(
     title="대화형 API 서버",
     description="OpenAI API를 활용한 대화형 REST API 서버",
@@ -18,7 +23,7 @@ app = FastAPI(
 )
 
 # OpenAI 클라이언트 초기화
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+client = OpenAI(api_key=api_key)
 
 # 대화 기록을 저장할 파일 경로
 HISTORY_FILE = 'conversation_history.json'
@@ -74,14 +79,22 @@ async def query(request: QueryRequest):
             "timestamp": timestamp
         })
 
+        # OpenAI API 호출을 위한 메시지 형식 변환
+        messages = [
+            {"role": msg["role"], "content": msg["content"]} 
+            for msg in conversation_history
+        ]
+
         # OpenAI API 호출
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": msg["role"], "content": msg["content"]} for msg in conversation_history]
+        chat_completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1000
         )
 
         # 응답 추출
-        assistant_response = response.choices[0].message.content
+        assistant_response = chat_completion.choices[0].message.content
 
         # 대화 기록에 어시스턴트 응답 추가
         conversation_history.append({
