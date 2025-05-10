@@ -17,11 +17,23 @@ OPENAI_API_KEY=your_api_key_here
 
 ## 실행 방법
 
+1. 필요한 패키지 설치:
 ```bash
-python main.py
+pip install -r requirements.txt
 ```
 
-서버가 기본적으로 `http://localhost:5000`에서 실행됩니다.
+2. `.env` 파일 생성:
+- 프로젝트 루트 디렉토리에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+
+3. 서버 실행:
+```bash
+python run.py
+```
+
+서버가 기본적으로 `http://localhost:10000`에서 실행됩니다.
 
 ## API 스키마
 
@@ -35,12 +47,200 @@ python main.py
   },
   "servers": [
     {
-      "url": "http://localhost:5000"
+      "url": "https://advanced-chat-server.onrender.com"
     }
   ],
   "paths": {
+    "/models": {
+      "get": {
+        "operationId": "getModels",
+        "summary": "사용 가능한 OpenAI 모델 목록 조회",
+        "responses": {
+          "200": {
+            "description": "성공적인 응답",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "모델 ID"
+                          },
+                          "object": {
+                            "type": "string",
+                            "description": "객체 타입"
+                          },
+                          "created": {
+                            "type": "integer",
+                            "description": "생성 시간 (Unix timestamp)"
+                          },
+                          "owned_by": {
+                            "type": "string",
+                            "description": "모델 소유자"
+                          },
+                          "permission": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
+                          },
+                          "root": {
+                            "type": "string",
+                            "description": "루트 모델 ID"
+                          },
+                          "parent": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "부모 모델 ID"
+                          }
+                        }
+                      }
+                    },
+                    "object": {
+                      "type": "string",
+                      "description": "응답 객체 타입",
+                      "example": "list"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 에러",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/model": {
+      "get": {
+        "operationId": "getCurrentModel",
+        "summary": "현재 사용 중인 모델 조회",
+        "responses": {
+          "200": {
+            "description": "성공적인 응답",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "description": "현재 사용 중인 모델 ID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 에러",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "setModel",
+        "summary": "사용할 모델 변경",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["model"],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "description": "변경할 모델 ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "성공적인 응답",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "description": "변경된 모델 ID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 에러",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/query": {
       "post": {
+        "operationId": "query",
         "summary": "사용자 입력에 대한 응답 생성",
         "requestBody": {
           "required": true,
@@ -96,6 +296,7 @@ python main.py
     },
     "/history": {
       "get": {
+        "operationId": "getHistory",
         "summary": "대화 기록 조회",
         "responses": {
           "200": {
@@ -127,6 +328,7 @@ python main.py
         }
       },
       "delete": {
+        "operationId": "clearHistory",
         "summary": "대화 기록 초기화",
         "responses": {
           "200": {
@@ -152,6 +354,109 @@ python main.py
 ```
 
 ## API 사용 방법
+
+### API 키 관리
+
+#### POST /api-keys
+새로운 API 키를 생성합니다.
+
+**요청 형식:**
+```json
+{
+    "client_name": "클라이언트 이름",
+    "expires_in_days": 30  // 선택사항: 만료 기간 (일)
+}
+```
+
+**응답 형식:**
+```json
+{
+    "api_key": "생성된_API_키",
+    "client_name": "클라이언트 이름",
+    "created_at": "2024-03-21T10:30:00.000Z",
+    "expires_at": "2024-04-20T10:30:00.000Z"  // 만료 기간이 설정된 경우
+}
+```
+
+#### DELETE /api-keys/{api_key}
+API 키를 비활성화합니다.
+
+**응답 형식:**
+```json
+{
+    "message": "API 키가 비활성화되었습니다."
+}
+```
+
+### API 요청
+
+모든 API 요청에는 `X-API-Key` 헤더가 필요합니다. 이 키는 각 클라이언트를 구분하는데 사용됩니다.
+
+예시:
+```bash
+curl -X POST "https://advanced-chat-server.onrender.com/query" \
+     -H "X-API-Key: your_api_key" \
+     -H "Content-Type: application/json" \
+     -d '{"input": "안녕하세요"}'
+```
+
+### GET /models
+
+사용 가능한 OpenAI 모델 목록을 조회합니다.
+
+**응답 형식:**
+```json
+{
+    "data": [
+        {
+            "id": "gpt-4",
+            "object": "model",
+            "created": 1677610602,
+            "owned_by": "openai",
+            "permission": [...],
+            "root": "gpt-4",
+            "parent": null
+        }
+    ],
+    "object": "list"
+}
+```
+
+### GET /model
+
+현재 사용 중인 모델을 조회합니다.
+
+**응답 형식:**
+```json
+{
+    "model": "gpt-3.5-turbo"
+}
+```
+
+### POST /model
+
+사용할 모델을 변경합니다.
+
+**요청 형식:**
+```json
+{
+    "model": "gpt-4"
+}
+```
+
+**응답 형식:**
+```json
+{
+    "model": "gpt-4"
+}
+```
+
+**에러 응답 형식:**
+```json
+{
+    "error": "사용할 수 없는 모델입니다. 사용 가능한 모델: gpt-3.5-turbo, gpt-4"
+}
+```
 
 ### POST /query
 
